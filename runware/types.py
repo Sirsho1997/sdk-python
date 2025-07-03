@@ -399,6 +399,89 @@ class IAdvancedFeatures:
 
 @dataclass
 class IImageInference:
+    """
+    Represents the parameters for an image inference task.
+
+    Attributes:
+        positivePrompt (str):
+            Required. A positive prompt is a text instruction to guide the model on generating the image. The length must be between 2 and 3000 characters. Use '__BLANK__' for no prompt guidance.
+        model (Union[int, str]):
+            Required. The AIR identifier of the model to use for inference.
+        taskUUID (Optional[str]):
+            Required. UUID v4. A unique identifier for the task, used to match async responses to their corresponding tasks. Must be unique for each task.
+        outputType (Optional[IOutputType]):
+            Specifies the output type for the image: 'base64Data', 'dataURI', or 'URL'. Default is 'URL'.
+        outputFormat (Optional[IOutputFormat]):
+            Specifies the format of the output image: 'JPG', 'PNG', or 'WEBP'. Default is 'JPG'.
+        uploadEndpoint (Optional[str]):
+            URL to which the generated image will be uploaded as binary data using HTTP PUT.
+        checkNsfw (Optional[bool]):
+            Enables or disables NSFW content check. Default is False. Adds 0.1s to inference time and may incur additional costs.
+        negativePrompt (Optional[str]):
+            A negative prompt to guide the model on what to avoid in the image. Length must be between 2 and 3000 characters.
+        seedImage (Optional[Union[File, str]]):
+            Required for image-to-image, inpainting, or outpainting. Specifies the seed image in UUID, data URI, base64, or URL format.
+        referenceImages (Optional[Union[File, str]]):
+            An array of reference images to condition the generation process. Useful for edit models and ACE++ workflows.
+        maskImage (Optional[Union[File, str]]):
+            Required for inpainting. Specifies the mask image in UUID, data URI, base64, or URL format.
+        strength (Optional[float]):
+            For image-to-image or inpainting. Value between 0 and 1. Controls the influence of the seed image. Default is 0.8.
+        height (Optional[int]):
+            Required. Height of the generated image (128-2048, divisible by 64).
+        width (Optional[int]):
+            Required. Width of the generated image (128-2048, divisible by 64).
+        acceleratorOptions (Optional[IAcceleratorOptions]):
+            Advanced caching mechanisms to speed up image generation.
+        advancedFeatures (Optional[IAdvancedFeatures]):
+            Specialized features that extend the image generation process, such as LayerDiffuse for transparency.
+        steps (Optional[int]):
+            Number of inference steps (1-100). Default is 20.
+        scheduler (Optional[str]):
+            Scheduler to use for inference. Default is the model's scheduler.
+        seed (Optional[int]):
+            Seed for randomization. If set, will be incremented for each image generated.
+        CFGScale (Optional[float]):
+            Guidance scale (0-50). Default is 7. Higher values adhere more closely to the prompt.
+        clipSkip (Optional[int]):
+            Additional layer skips during prompt processing in the CLIP model (0-2).
+        promptWeighting (Optional[EPromptWeighting]):
+            Syntax to use for prompt weighting (e.g., 'compel', 'sdembeds').
+        numberResults (Optional[int]):
+            Number of images to generate (1-20). Default is 1.
+        controlNet (Optional[List[IControlNet]]):
+            List of ControlNet configurations for guided image generation.
+        lora (Optional[List[ILora]]):
+            List of LoRA models for style or feature adaptation.
+        lycoris (Optional[List[ILycoris]]):
+            List of LyCORIS models for additional adaptation.
+        includeCost (Optional[bool]):
+            If True, the response will include the cost of the task. Default is False.
+        onPartialImages (Optional[Callable[[List[IImage], Optional[IError]], None]]):
+            Callback for handling partial image results during async processing.
+        refiner (Optional[IRefiner]):
+            Refiner model configuration for enhanced image quality (SDXL-based only).
+        vae (Optional[str]):
+            AIR identifier for a VAE model to override the default.
+        maskMargin (Optional[int]):
+            Adds extra context pixels (32-128) around the masked region during inpainting.
+        outputQuality (Optional[int]):
+            Compression quality of the output image (20-99). Default is 95.
+        embeddings (Optional[List[IEmbedding]]):
+            List of embedding models (Textual Inversion) to add specific concepts or styles.
+        outpaint (Optional[IOutpaint]):
+            Extends image boundaries in specified directions. Requires width and height to account for the extension.
+        instantID (Optional[IInstantID]):
+            PuLID configuration for fast and high-quality identity customization.
+        ipAdapters (Optional[List[IIpAdapter]]):
+            List of IP-Adapter models for image-prompted generation.
+        referenceImages (Optional[List[Union[str, File]]]):
+            Reference images for conditioning (used in some workflows, e.g., ACE++).
+        acePlusPlus (Optional[IAcePlusPlus]):
+            ACE++ configuration for character-consistent image generation and editing.
+        extraArgs (Optional[Dict[str, Any]]):
+            Additional arguments for extensibility.
+    """
     positivePrompt: str
     model: Union[int, str]
     taskUUID: Optional[str] = None
@@ -467,6 +550,26 @@ class IBackgroundRemovalSettings:
 
 @dataclass
 class IImageBackgroundRemoval(IImageCaption):
+    """
+    Parameters for an image background removal task.
+
+    Attributes:
+        outputType (Optional[IOutputType]):
+            Specifies the output type in which the image is returned. Supported values: 'base64Data', 'dataURI', 'URL'. Default is 'URL'.
+            - base64Data: The image is returned as a base64-encoded string (imageBase64Data).
+            - dataURI: The image is returned as a data URI string (imageDataURI).
+            - URL: The image is returned as a URL string (imageURL).
+        outputFormat (Optional[IOutputFormat]):
+            Specifies the format of the output image. Supported formats: 'PNG', 'JPG', 'WEBP'. Default is 'PNG'.
+        outputQuality (Optional[int]):
+            Sets the compression quality of the output image (20-99). Default is 95. Higher values preserve more quality but increase file size.
+        model (Optional[Union[int, str]]):
+            The AIR identifier of the background removal model to use. This is a unique string representing a specific model.
+        taskUUID (Optional[str]):
+            UUID v4. A unique identifier for the task, used to match async responses to their corresponding tasks.
+        settings (Optional[IBackgroundRemovalSettings]):
+            An object containing all background removal configuration options. Currently, only supported by RemBG 1.4 (runware:109@1).
+    """
     outputType: Optional[IOutputType] = None
     outputFormat: Optional[IOutputFormat] = None
     outputQuality: Optional[int] = None
@@ -477,6 +580,19 @@ class IImageBackgroundRemoval(IImageCaption):
 
 @dataclass
 class IPromptEnhance:
+    """
+    Represents the parameters for a prompt enhancement task.
+
+    Attributes:
+        promptMaxLength (int):
+            Required. The maximum length of the enhanced prompt to receive, expressed in tokens (12-400). Approximately 100 tokens correspond to about 75 words or 500 characters.
+        promptVersions (int):
+            Required. The number of prompt versions to receive (1-5).
+        prompt (str):
+            Required. The prompt to enhance (1-300 characters).
+        includeCost (bool):
+            If set to True, the cost to perform the task will be included in the response object. Default is False.
+    """
     promptMaxLength: int
     promptVersions: int
     prompt: str

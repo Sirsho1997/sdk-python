@@ -1,0 +1,19 @@
+# Core dependencies
+python-dotenv==1.0.1
+openai
+
+# LangChain and related
+langchain
+langchain-openai
+langgraph
+
+# MCP protocol and adapters
+mcp
+langchain-mcp-adapters
+
+# Websockets (if needed by MCP or LangChain)
+websockets
+
+aiofiles==23.2.1
+python-dotenv==1.0.1
+websockets
