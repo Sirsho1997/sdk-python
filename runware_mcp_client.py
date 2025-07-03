@@ -9,7 +9,7 @@ from langgraph.prebuilt import create_react_agent
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from langchain_core.messages import ToolMessage, AIMessage
-
+import traceback
 # Load environment variables from .env
 load_dotenv()
 openai_api_key = os.getenv("OPENAI_API_KEY")
@@ -80,7 +80,7 @@ async def main():
                     logging.info("Agent response received successfully")
                 except Exception as e:
                     logging.error(f"Agent invocation failed: {type(e).__name__}: {e}")
-                    import traceback
+
                     logging.error(f"Agent error traceback: {traceback.format_exc()}")
                     print(f"Error: {e}")
                     continue
