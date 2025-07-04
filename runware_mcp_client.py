@@ -14,28 +14,36 @@ import traceback
 load_dotenv()
 openai_api_key = os.getenv("OPENAI_API_KEY")
 
+# Check if logging is enabled
+LOGGING_ENABLED = os.environ.get("LOGGING", "F").upper() == "T"
+
 # Configure logging for client (using same file as server)
-log_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "debug.log")
+if LOGGING_ENABLED:
+    log_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "debug.log")
 
-# Clear existing handlers
-for handler in logging.root.handlers[:]:
-    logging.root.removeHandler(handler)
+    # Clear existing handlers
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
 
-# Create new handlers
-file_handler = logging.FileHandler(log_file, mode='a')  # 'a' mode to append to existing file
-console_handler = logging.StreamHandler()
+    # Create new handlers
+    file_handler = logging.FileHandler(log_file, mode='a')  # 'a' mode to append to existing file
+    console_handler = logging.StreamHandler()
 
-# Set formatter
-formatter = logging.Formatter('%(asctime)s [CLIENT] %(levelname)s %(message)s')
-file_handler.setFormatter(formatter)
-console_handler.setFormatter(formatter)
+    # Set formatter
+    formatter = logging.Formatter('%(asctime)s [CLIENT] %(levelname)s %(message)s')
+    file_handler.setFormatter(formatter)
+    console_handler.setFormatter(formatter)
 
-# Add handlers to root logger
-logging.root.addHandler(file_handler)
-logging.root.addHandler(console_handler)
-logging.root.setLevel(logging.INFO)
+    # Add handlers to root logger
+    logging.root.addHandler(file_handler)
+    logging.root.addHandler(console_handler)
+    logging.root.setLevel(logging.INFO)
 
-logging.info("Client started. Log file: %s", log_file)
+    logging.info("Client started. Log file: %s", log_file)
+else:
+    # Disable all logging
+    logging.disable(logging.CRITICAL)
+    print("Client started. Logging disabled.")
 
 # Initialize OpenAI model with key
 model = ChatOpenAI(model="gpt-4o", openai_api_key=openai_api_key)
@@ -45,6 +53,21 @@ server_params = StdioServerParameters(
     command="python",
     args=["runware_mcp_server.py"],
 )
+
+# Patch: Ensure all tool call arguments are wrapped in 'params'
+def ensure_params_wrapper(messages):
+    # This function takes the list of messages (from the agent result),
+    # and for any AIMessage with tool_calls, it wraps arguments in 'params' if not already present.
+    for message in messages:
+        if isinstance(message, AIMessage):
+            tool_calls = message.additional_kwargs.get("tool_calls", [])
+            for call in tool_calls:
+                func = call.get("function", {})
+                args = func.get("arguments", {})
+                # Only wrap if not already wrapped
+                if not (isinstance(args, dict) and "params" in args):
+                    func["arguments"] = {"params": args}
+    return messages
 
 async def main():
     logging.info("Starting MCP client session")
@@ -91,6 +114,8 @@ async def main():
                 logging.info(f"Processing agent result: {type(result)}")
                 if isinstance(result, dict) and "messages" in result:
                     logging.info(f"Number of messages in result: {len(result['messages'])}")
+                    # Patch: Ensure all tool call arguments are wrapped in 'params'
+                    result["messages"] = ensure_params_wrapper(result["messages"])
                     for i, message in enumerate(result["messages"]):
                         logging.info(f"Message {i}: {type(message).__name__}")
                         if isinstance(message, ToolMessage):

@@ -16,31 +16,39 @@ runware = Runware(api_key=RUNWARE_API_KEY)
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
+# Check if logging is enabled
+LOGGING_ENABLED = os.environ.get("LOGGING", "F").upper() == "T"
+
 # Initialize FastMCP server
 mcp = FastMCP("runware_server")
 
-# Configure logging
-log_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "debug.log")
+# Configure logging only if enabled
+if LOGGING_ENABLED:
+    log_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "debug.log")
 
-# Clear existing handlers
-for handler in logging.root.handlers[:]:
-    logging.root.removeHandler(handler)
+    # Clear existing handlers
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
 
-# Create new handlers
-file_handler = logging.FileHandler(log_file, mode='w')
-console_handler = logging.StreamHandler()
+    # Create new handlers
+    file_handler = logging.FileHandler(log_file, mode='w')
+    console_handler = logging.StreamHandler()
 
-# Set formatter
-formatter = logging.Formatter('%(asctime)s [SERVER] %(levelname)s %(message)s')
-file_handler.setFormatter(formatter)
-console_handler.setFormatter(formatter)
+    # Set formatter
+    formatter = logging.Formatter('%(asctime)s [SERVER] %(levelname)s %(message)s')
+    file_handler.setFormatter(formatter)
+    console_handler.setFormatter(formatter)
 
-# Add handlers to root logger
-logging.root.addHandler(file_handler)
-logging.root.addHandler(console_handler)
-logging.root.setLevel(logging.INFO)
+    # Add handlers to root logger
+    logging.root.addHandler(file_handler)
+    logging.root.addHandler(console_handler)
+    logging.root.setLevel(logging.INFO)
 
-logging.info(f"Server started. Log file: {log_file}")
+    logging.info(f"Server started. Log file: {log_file}")
+else:
+    # Disable all logging
+    logging.disable(logging.CRITICAL)
+    print("Server started. Logging disabled.")
 
 
 @mcp.tool()
