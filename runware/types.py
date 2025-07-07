@@ -525,6 +525,25 @@ class IImageInference:
 
 @dataclass
 class IImageCaption:
+    """
+    Represents the parameters for an image caption task.
+
+    Attributes:
+        taskType (str):
+            Required. The type of task to be performed. For this task, the value should be 'imageCaption'.
+        taskUUID (str):
+            Required. UUID v4. When a task is sent to the API you must include a random UUID v4 string using the taskUUID parameter. This string is used to match the async responses to their corresponding tasks. If you send multiple tasks at the same time, the taskUUID will help you match the responses to the correct tasks. The taskUUID must be unique for each task you send to the API.
+        inputImage (Optional[Union[File, str]]):
+            Required. Specifies the input image to be processed. The image can be specified in one of the following formats:
+            - An UUID v4 string of a previously uploaded image or a generated image.
+            - A data URI string representing the image. The data URI must be in the format data:<mediaType>;base64, followed by the base64-encoded image. For example: data:image/png;base64,iVBORw0KGgo....
+            - A base64 encoded image without the data URI prefix. For example: iVBORw0KGgo....
+            - A URL pointing to the image. The image must be accessible publicly.
+            Supported formats are: PNG, JPG and WEBP.
+        includeCost (bool):
+            If set to true, the cost to perform the task will be included in the response object. Default is False.
+    """
+
     inputImage: Optional[Union[File, str]] = None
     includeCost: bool = False
 

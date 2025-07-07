@@ -1,7 +1,7 @@
 import json
 import os
 from dotenv import load_dotenv
-from runware import Runware, IPromptEnhance, RunwareAPIError, IImageInference, IImageBackgroundRemoval
+from runware import Runware, IPromptEnhance, RunwareAPIError, IImageInference, IImageBackgroundRemoval, IImageCaption
 from mcp.server.fastmcp import FastMCP
 from dataclasses import fields
 import re
@@ -90,7 +90,6 @@ async def image_inference(params: dict):
     # Handle both string and dict formats for params
     if isinstance(params, str):
         try:
-            import json
             params = json.loads(params)
             logging.info(f"Parsed string params to dict: {params}")
         except json.JSONDecodeError as e:
@@ -146,7 +145,6 @@ async def image_background_removal(params: dict):
     # Handle both string and dict formats for params
     if isinstance(params, str):
         try:
-            import json
             params = json.loads(params)
             logging.info(f"Parsed string params to dict: {params}")
         except json.JSONDecodeError as e:
@@ -176,7 +174,6 @@ async def image_background_removal(params: dict):
         logging.error(f"TypeError details: {type(e).__name__}: {str(e)}")
         logging.error(f"Filtered params: {filtered}")
         logging.error(f"Valid fields: {valid_fields}")
-        import traceback
         logging.error(f"TypeError traceback: {traceback.format_exc()}")
         return {"error": f"TypeError: {e}", "params": filtered}
     except RunwareAPIError as e:
@@ -185,7 +182,6 @@ async def image_background_removal(params: dict):
     except Exception as e:
         logging.error(f"Unexpected exception: {type(e).__name__}: {e}")
         logging.error(f"Request: {request if 'request' in locals() else 'Not created'}")
-        import traceback
         logging.error(f"Traceback: {traceback.format_exc()}")
         return {"error": str(e), "request": str(request) if 'request' in locals() else "Not created"}
 
@@ -345,7 +341,6 @@ async def parse_background_removal_prompt(prompt: str) -> dict:
     )
     user_prompt = f'User request: "{prompt}"\nOutput (as JSON):'
 
-    from openai import OpenAI
     client = OpenAI(api_key=OPENAI_API_KEY)
     response = client.chat.completions.create(
         model="gpt-4",  # or "gpt-3.5-turbo"
@@ -377,6 +372,125 @@ async def parse_background_removal_prompt(prompt: str) -> dict:
     else:
         logging.error(f"No JSON found in response: {content}")
         return {"error": "No JSON found in LLM response", "raw": content}
+
+@mcp.tool()
+async def parse_image_caption_prompt(prompt: str) -> dict:
+    """
+    Parse a natural language prompt into IImageCaption parameters using OpenAI GPT.
+    The schema is extracted directly from the IImageCaption docstring.
+    """
+    logging.info(f"parse_image_caption_prompt called with prompt: {prompt}")
+    # Force flush
+    for handler in logging.root.handlers:
+        if hasattr(handler, 'flush'):
+            handler.flush()
+    # Extract the schema from the docstring
+    doc = IImageCaption.__doc__
+    schema_lines = []
+    in_attr = False
+    for line in doc.splitlines():
+        if 'Attributes:' in line:
+            in_attr = True
+            continue
+        if in_attr:
+            if line.strip() == '' or not line.startswith(' ' * 8):
+                break
+            schema_lines.append(line.strip())
+    # Join and clean up
+    schema_str = '\n'.join(schema_lines)
+    system_prompt = (
+        f"You are an API parameter extraction assistant. "
+        f"Given a user request, extract the following parameters for the image caption API:\n"
+        f"{schema_str}\n"
+        f"IMPORTANT: You MUST include these REQUIRED parameters:\n"
+        f"- inputImage: The image URL, base64 data, or file path to generate caption for\n"
+        f"- taskType: Should be 'imageCaption'\n"
+        f"- taskUUID: Generate a random UUID v4 string for task identification\n"
+        f"Return a JSON dictionary with the required parameters and any other relevant optional parameters."
+    )
+    user_prompt = f'User request: "{prompt}"\nOutput (as JSON):'
+
+    client = OpenAI(api_key=OPENAI_API_KEY)
+    response = client.chat.completions.create(
+        model="gpt-4",  # or "gpt-3.5-turbo"
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ],
+        temperature=0.0,
+        max_tokens=256,
+    )
+    content = response.choices[0].message.content
+    logging.info(f"OpenAI response: {content}")
+    logging.info(f"OpenAI response length: {len(content)} characters")
+    match = re.search(r'\{.*\}', content, re.DOTALL)
+    if match:
+        try:
+            params = json.loads(match.group(0))
+            logging.info(f"Parsed parameters: {params}")
+            logging.info(f"Parameter types: {[(k, type(v)) for k, v in params.items()]}")
+            return params
+        except json.JSONDecodeError as e:
+            logging.error(f"JSON decode error at line {e.lineno}, column {e.colno}: {e.msg}")
+            logging.error(f"Failed content: {match.group(0)}")
+            return {"error": f"JSON decode error: {e}", "raw": content}
+        except Exception as e:
+            logging.error(f"Unexpected error parsing JSON: {type(e).__name__}: {e}")
+            logging.error(f"Failed content: {match.group(0)}")
+            return {"error": f"Failed to parse JSON: {e}", "raw": content}
+    else:
+        logging.error(f"No JSON found in response: {content}")
+        return {"error": "No JSON found in LLM response", "raw": content}
+
+@mcp.tool()
+async def image_caption(params: dict):
+    """
+    Generate a caption for an image using Runware's imageCaption API.
+    Args:
+        params (dict): Dictionary of parameters matching IImageCaption attributes.
+    Returns:
+        Caption text or an error message, and the request body for debugging.
+    """
+    logging.info(f"image_caption called with params: {params}")
+    
+    # Handle both string and dict formats for params
+    if isinstance(params, str):
+        try:
+            params = json.loads(params)
+            logging.info(f"Parsed string params to dict: {params}")
+        except json.JSONDecodeError as e:
+            logging.error(f"Failed to parse params string as JSON: {e}")
+            return {"error": f"Invalid JSON in params: {e}"}
+    
+    await runware.connect()
+    valid_fields = {f.name for f in fields(IImageCaption)}
+    filtered = {k: v for k, v in params.items() if k in valid_fields}
+    logging.info(f"Filtered params: {filtered}")
+    try:
+        request = IImageCaption(**filtered)
+        logging.info(f"Request: {request}")
+        logging.info(f"Request details: inputImage='{request.inputImage}', includeCost={request.includeCost}")
+        caption_result = await runware.imageCaption(requestImageToText=request)
+        logging.info(f"Caption result: {caption_result}")
+        return {
+            "request": str(request),
+            "caption": caption_result.text if hasattr(caption_result, 'text') else str(caption_result)
+        }
+    except TypeError as e:
+        logging.error(f"TypeError creating IImageCaption: {e}")
+        logging.error(f"TypeError details: {type(e).__name__}: {str(e)}")
+        logging.error(f"Filtered params: {filtered}")
+        logging.error(f"Valid fields: {valid_fields}")
+        logging.error(f"TypeError traceback: {traceback.format_exc()}")
+        return {"error": f"TypeError: {e}", "params": filtered}
+    except RunwareAPIError as e:
+        logging.error(f"RunwareAPIError: {e} | Request: {request}")
+        return {"error": str(e), "request": str(request)}
+    except Exception as e:
+        logging.error(f"Unexpected exception: {type(e).__name__}: {e}")
+        logging.error(f"Request: {request if 'request' in locals() else 'Not created'}")
+        logging.error(f"Traceback: {traceback.format_exc()}")
+        return {"error": str(e), "request": str(request) if 'request' in locals() else "Not created"}
 
 # Starting the server
 if __name__ == "__main__":

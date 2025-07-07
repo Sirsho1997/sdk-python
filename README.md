@@ -1,6 +1,6 @@
 # Runware Model Context Protocol SDK
 
-The Python Runware MCP SDK allows you to use Runware tools via a local agent interface, including prompt enhancement, image inference, and background removal, with natural language support.
+The Python Runware MCP SDK allows you to use Runware tools via a local agent interface, including prompt enhancement, image inference, background removal, and generating caption for images, with natural language support.
 
 
 ## Get API Access
