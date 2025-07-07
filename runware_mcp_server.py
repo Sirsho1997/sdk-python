@@ -86,6 +86,17 @@ async def image_inference(params: dict):
         List of image URLs or an error message, and the request body for debugging.
     """
     logging.info(f"image_inference called with params: {params}")
+    
+    # Handle both string and dict formats for params
+    if isinstance(params, str):
+        try:
+            import json
+            params = json.loads(params)
+            logging.info(f"Parsed string params to dict: {params}")
+        except json.JSONDecodeError as e:
+            logging.error(f"Failed to parse params string as JSON: {e}")
+            return {"error": f"Invalid JSON in params: {e}"}
+    
     await runware.connect()
     valid_fields = {f.name for f in fields(IImageInference)}
     filtered = {k: v for k, v in params.items() if k in valid_fields}
@@ -131,6 +142,17 @@ async def image_background_removal(params: dict):
         List of image URLs or an error message, and the request body for debugging.
     """
     logging.info(f"image_background_removal called with params: {params}")
+    
+    # Handle both string and dict formats for params
+    if isinstance(params, str):
+        try:
+            import json
+            params = json.loads(params)
+            logging.info(f"Parsed string params to dict: {params}")
+        except json.JSONDecodeError as e:
+            logging.error(f"Failed to parse params string as JSON: {e}")
+            return {"error": f"Invalid JSON in params: {e}"}
+    
     await runware.connect()
     valid_fields = {f.name for f in fields(IImageBackgroundRemoval)}
     filtered = {k: v for k, v in params.items() if k in valid_fields}
@@ -198,7 +220,7 @@ async def parse_image_inference_prompt(prompt: str) -> dict:
         f"{schema_str}\n"
         f"IMPORTANT: You MUST include these REQUIRED parameters:\n"
         f"- positivePrompt: The text description of what to generate\n"
-        f"- model: Use 'runware:1@1' as the default model\n"
+        f"- model: Use 'civitai:943001@1055701' as the default model\n"
         f"- height: Use 512 as default height\n"
         f"- width: Use 512 as default width\n"
         f"Return a JSON dictionary with the required parameters and any other relevant optional parameters."
